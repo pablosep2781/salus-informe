@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALUS · Informe Presupuestal</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{background:#f8fafc;color:#1e293b;font-size:13px;padding:16px}
+h1{font-size:20px;font-weight:600;margin-bottom:2px}
+.sub{font-size:11px;color:#64748b;margin-bottom:16px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:10px;font-weight:500;margin-right:4px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.kpi{border-radius:12px;padding:14px 16px}
+.kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kpi-val{font-size:20px;font-weight:600}
+.kpi-sub{font-size:10px;margin-top:3px;opacity:.7}
+.kpi-p{background:#eef2ff;border-top:3px solid #6366f1}.kpi-p .kpi-label,.kpi-p .kpi-val,.kpi-p .kpi-sub{color:#4338ca}
+.kpi-e{background:#f0fdf4;border-top:3px solid #16a34a}.kpi-e .kpi-label,.kpi-e .kpi-val,.kpi-e .kpi-sub{color:#15803d}
+.kpi-v{background:#fef2f2;border-top:3px solid #ef4444}.kpi-v .kpi-label,.kpi-v .kpi-val,.kpi-v .kpi-sub{color:#dc2626}
+.tabs{display:flex;gap:4px;background:#f1f5f9;border-radius:10px;padding:4px;margin-bottom:14px}
+.tab{flex:1;padding:7px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:transparent;color:#64748b;transition:all .15s}
+.tab.active{background:#fff;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.panel{display:none}.panel.active{display:block}
+.alerts{background:#fef2f2;border-radius:12px;border:1px solid #fecaca;padding:14px;margin-bottom:12px}
+.alert-title{font-size:12px;font-weight:600;color:#dc2626;margin-bottom:8px}
+.alert-row{font-size:12px;padding:5px 0;border-bottom:.5px solid #fecaca}
+.alert-row:last-child{border-bottom:none}
+.alert-row.warn{color:#dc2626}.alert-row.info{color:#6b7280}
+.chart-wrap{background:#fff;border-radius:12px;border:.5px solid #e2e8f0;padding:16px;margin-bottom:12px}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:12px}
+.chart-legend{display:flex;gap:14px;margin-bottom:10px}
+.leg-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+.bar-group{margin-bottom:12px}
+.bar-label{font-size:11px;color:#475569;margin-bottom:4px;font-weight:500}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.bar-track{flex:1;height:14px;background:#f1f5f9;border-radius:99px;overflow:hidden}
+.bar-fill{height:100%;border-radius:99px;transition:width .5s}
+.bar-num{font-size:10px;color:#64748b;width:80px;text-align:right;flex-shrink:0}
+.dept-card{background:#fff;border-radius:12px;border:.5px solid #e2e8f0;margin-bottom:10px;overflow:hidden}
+.dept-hdr{padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.dept-name{font-size:13px;font-weight:600}
+.dept-hint{font-size:10px;color:#94a3b8;margin-top:2px}
+.dept-var{text-align:right}
+.dept-var-val{font-size:15px;font-weight:600}
+.dept-var-sub{font-size:10px;color:#94a3b8}
+.progress-labels{display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:4px;margin-top:10px}
+.progress-track{height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+.progress-fill{height:100%;border-radius:99px}
+.lines-table{width:100%;border-collapse:collapse;font-size:12px}
+.lines-table th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;padding:8px 14px;background:#f8fafc;text-align:right;border-bottom:.5px solid #e2e8f0}
+.lines-table th:first-child{text-align:left}
+.lines-table td{padding:8px 14px;text-align:right;border-bottom:.5px solid #f1f5f9}
+.lines-table td:first-child{text-align:left;color:#475569}
+.lines-table tr:last-child td{border-bottom:none}
+.sem{width:10px;height:10px;border-radius:50%;display:inline-block}
+.lines-total td{font-weight:600;border-top:1.5px solid #e2e8f0;background:#f8fafc}
+.vp{color:#16a34a;font-weight:600}.vn{color:#dc2626;font-weight:600}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const fN=n=>new Intl.NumberFormat('es-CO',{minimumFractionDigits:0,maximumFractionDigits:0}).format(Math.round(n||0))
+const fM=n=>Math.round((n||0)/1e6)+'M'
+const fP=(n,dec=1)=>n===null||isNaN(n)?'–':(n>=0?'+':'')+n.toFixed(dec)+'%'
+const pct=(v,t)=>!t?'–':Math.round(v/t*100)+'%'
+const vPct=(p,e)=>p?(e-p)/p*100:null
+
+const DEPTS=[
+  {name:'Administración',color:'#6366f1',bg:'#eef2ff',lines:[
+    ['Gastos de personal',167160576,146775372],['Honorarios',16875894,20526799],
+    ['Impuestos',35669485,23443294],['Arrendamientos',9050641,10951846],
+    ['Contribuciones y afiliaciones',2500000,2500000],['Servicios',21410186,13321940],
+    ['Gastos legales',2551680,10410001],['Depreciaciones',74640738,77437950],['Diversos',13836139,11545573]]},
+  {name:'Ventas',color:'#f59e0b',bg:'#fffbeb',lines:[
+    ['Gastos de personal',77831341,95227619],['Impuestos',36255963,41575819],
+    ['Servicios',275246377,265152461],['Gastos de viaje',2197780,0],['Diversos',4572253,722200]]},
+  {name:'Laboratorio',color:'#10b981',bg:'#f0fdf4',lines:[
+    ['Honorarios',21685280,24848261],['Servicios',6658619,4358479],
+    ['Mantenimiento',22388174,38668128],['Materia prima',95049797,204405403,true],['Diversos',1900983,3814949]]},
+  {name:'Planta',color:'#ef4444',bg:'#fef2f2',lines:[
+    ['Gastos de personal',100854513,103097427],['Impuestos',2457360,33389],
+    ['Servicios',17070532,10039790],['Mantenimiento y reparaciones',12675752,61505083,true],['Diversos',6276704,3707089]]},
+  {name:'No Operacionales',color:'#8b5cf6',bg:'#f5f3ff',lines:[
+    ['Financieros',42363096,56690440],['Gastos diversos',4037000,6469571]]}
+]
+
+const PL_ROWS=[
+  {k:'trade',l:'Ing. Trade',sub:false,total:false,inc:true},
+  {k:'inst',l:'Ing. Institucional',sub:false,total:false,inc:true},
+  {k:'total_ing',l:'Total ingresos',sub:true,total:false,inc:true},
+  {k:'costo',l:'(-) Costo de ventas',sub:false,total:false,inc:false},
+  {k:'lab73',l:'(-) Laboratorio',sub:false,total:false,inc:false},
+  {k:'util_bruta',l:'Utilidad bruta',sub:true,total:false,inc:true},
+  {k:'edif',l:'(-) Edif. administrativo',sub:false,total:false,inc:false},
+  {k:'vtas',l:'(-) Ventas',sub:false,total:false,inc:false},
+  {k:'util_op',l:'Utilidad operativa',sub:true,total:false,inc:true},
+  {k:'ing_noop',l:'(+) Ing. no operacionales',sub:false,total:false,inc:true},
+  {k:'no_op',l:'(-) No operacionales',sub:false,total:false,inc:false},
+  {k:'util_ext',l:'Util. antes gastos ext.',sub:true,total:false,inc:true},
+  {k:'cedi',l:'(-) CEDI',sub:false,total:false,inc:false},
+  {k:'planta2',l:'(-) Planta 2',sub:false,total:false,inc:false},
+  {k:'util_imp',l:'Utilidad antes de impuestos',sub:false,total:true,inc:true}
+]
+
+const PLD={
+  enero:{trade:{p:976713146,r:1129044225},inst:{p:1651440312,r:1763926624},total_ing:{p:2628153458,r:2892970849},costo:{p:861679819,r:859085479},lab73:{p:244473357,r:155106239},util_bruta:{p:1522000282,r:1878779131},edif:{p:326312467,r:336970178},vtas:{p:358292309,r:338730051},util_op:{p:837395506,r:1203078902},ing_noop:{p:167086742,r:167086742},no_op:{p:50053381,r:46424851},util_ext:{p:835666488,r:1323740794},cedi:{p:118762380,r:118762380},planta2:{p:128973692,r:147184000},util_imp:{p:587930416,r:1057794414}},
+  febrero:{trade:{p:1009218243,r:1025222283},inst:{p:2130600900,r:2130708662},total_ing:{p:3139819143,r:3155930945},costo:{p:1080891898,r:1025839187},lab73:{p:301556598,r:260147285},util_bruta:{p:1757370647,r:1869944473},edif:{p:354316613,r:358306505},vtas:{p:377344207,r:453657717},util_op:{p:1025709827,r:1057980251},ing_noop:{p:181343739,r:192944762},no_op:{p:50053381,r:30246405},util_ext:{p:1157000185,r:1220678607},cedi:{p:175877706,r:175877706},planta2:{p:142334861,r:142334861},util_imp:{p:838787618,r:902466040}},
+  marzo:{trade:{p:976551090,r:1088171311},inst:{p:2099553900,r:2299427960},total_ing:{p:3076104990,r:3387599271},costo:{p:1086456865,r:1141443726},lab73:{p:298359933,r:382067265},util_bruta:{p:1691288193,r:1864088281},edif:{p:326503305,r:319787892},vtas:{p:406481422,r:402678099},util_op:{p:958303466,r:1141622290},ing_noop:{p:177663858,r:66326755},no_op:{p:50053381,r:63160011},util_ext:{p:929074678,r:1144789035},cedi:{p:156839264,r:87611323},planta2:{p:139334861,r:181832110},util_imp:{p:632900553,r:875345603}},
+  abril:{trade:{p:1030060739,r:0},inst:{p:2099553900,r:0},total_ing:{p:3129614639,r:0},costo:{p:1092021831,r:0},lab73:{p:325216031,r:0},util_bruta:{p:1712376777,r:0},edif:{p:326650056,r:0},vtas:{p:400542966,r:0},util_op:{p:985183756,r:0},ing_noop:{p:180754367,r:0},no_op:{p:50053381,r:0},util_ext:{p:959404009,r:0},cedi:{p:156480732,r:0},planta2:{p:134334861,r:0},util_imp:{p:668588417,r:0}},
+  mayo:{trade:{p:1083570387,r:0},inst:{p:2015553900,r:0},total_ing:{p:3099124287,r:0},costo:{p:1036069997,r:0},lab73:{p:276635275,r:0},util_bruta:{p:1786419015,r:0},edif:{p:326650056,r:0},vtas:{p:419068510,r:0},util_op:{p:1040700449,r:0},ing_noop:{p:178993363,r:0},no_op:{p:50053381,r:0},util_ext:{p:1014684217,r:0},cedi:{p:154956214,r:0},planta2:{p:139334861,r:0},util_imp:{p:720393142,r:0}},
+  junio:{trade:{p:1137080036,r:0},inst:{p:2015553900,r:0},total_ing:{p:3152633936,r:0},costo:{p:1041634963,r:0},lab73:{p:243940179,r:0},util_bruta:{p:1867058794,r:0},edif:{p:327273746,r:0},vtas:{p:413130054,r:0},util_op:{p:1126654994,r:0},ing_noop:{p:182083872,r:0},no_op:{p:50053381,r:0},util_ext:{p:1101053788,r:0},cedi:{p:157631697,r:0},planta2:{p:134334861,r:0},util_imp:{p:809087230,r:0}},
+  julio:{trade:{p:1190589685,r:0},inst:{p:2015553900,r:0},total_ing:{p:3206143585,r:0},costo:{p:1047199930,r:0},lab73:{p:315632463,r:0},util_bruta:{p:1843311192,r:0},edif:{p:327659506,r:0},vtas:{p:436191597,r:0},util_op:{p:1079460088,r:0},ing_noop:{p:185174388,r:0},no_op:{p:50053381,r:0},util_ext:{p:1214581088,r:0},cedi:{p:0,r:0},planta2:{p:139334861,r:0},util_imp:{p:1075246227,r:0}},
+  agosto:{trade:{p:1244099334,r:0},inst:{p:2015553900,r:0},total_ing:{p:3259653234,r:0},costo:{p:1052764896,r:0},lab73:{p:271559494,r:0},util_bruta:{p:1935328844,r:0},edif:{p:327970597,r:0},vtas:{p:430385217,r:0},util_op:{p:1176973030,r:0},ing_noop:{p:188264890,r:0},no_op:{p:50053381,r:0},util_ext:{p:1315184539,r:0},cedi:{p:0,r:0},planta2:{p:134334861,r:0},util_imp:{p:1180849678,r:0}},
+  septiembre:{trade:{p:1297608982,r:0},inst:{p:2015553900,r:0},total_ing:{p:3313162882,r:0},costo:{p:1058329862,r:0},lab73:{p:336462961,r:0},util_bruta:{p:1918370059,r:0},edif:{p:327879417,r:0},vtas:{p:453593511,r:0},util_op:{p:1136897131,r:0},ing_noop:{p:191355399,r:0},no_op:{p:50053381,r:0},util_ext:{p:1278199149,r:0},cedi:{p:0,r:0},planta2:{p:139334861,r:0},util_imp:{p:1138864288,r:0}},
+  octubre:{trade:{p:1351118631,r:0},inst:{p:2015553900,r:0},total_ing:{p:3366672531,r:0},costo:{p:1063894829,r:0},lab73:{p:294550988,r:0},util_bruta:{p:2008226714,r:0},edif:{p:328620802,r:0},vtas:{p:449665828,r:0},util_op:{p:1229940084,r:0},ing_noop:{p:194445908,r:0},no_op:{p:50053381,r:0},util_ext:{p:1374332611,r:0},cedi:{p:0,r:0},planta2:{p:134334861,r:0},util_imp:{p:1239997751,r:0}},
+  noviembre:{trade:{p:1391250868,r:0},inst:{p:2250207300,r:0},total_ing:{p:3641458168,r:0},costo:{p:1174892110,r:0},lab73:{p:278817525,r:0},util_bruta:{p:2187748533,r:0},edif:{p:329334286,r:0},vtas:{p:483258270,r:0},util_op:{p:1375155977,r:0},ing_noop:{p:210316458,r:0},no_op:{p:50053381,r:0},util_ext:{p:1535419054,r:0},cedi:{p:0,r:0},planta2:{p:139334861,r:0},util_imp:{p:1396084193,r:0}},
+  diciembre:{trade:{p:882909204,r:0},inst:{p:1780900500,r:0},total_ing:{p:2663809704,r:0},costo:{p:908377817,r:0},lab73:{p:264293314,r:0},util_bruta:{p:1491138574,r:0},edif:{p:329737850,r:0},vtas:{p:372081036,r:0},util_op:{p:789319687,r:0},ing_noop:{p:153851286,r:0},no_op:{p:50053381,r:0},util_ext:{p:774355212,r:0},cedi:{p:118762380,r:0},planta2:{p:134334861,r:0},util_imp:{p:521257971,r:0}}
+}
+
+const SEM_COLOR={g:'#22c55e',a:'#f59e0b',r:'#ef4444',x:'#94a3b8'}
+const SEM_BG={g:'#f0fdf4',a:'#fffbeb',r:'#fef2f2',x:'#f8fafc'}
+function sem(vp,isGasto){
+  if(vp===null)return'x'
+  const bad=isGasto?vp>5:vp<-5
+  const crit=isGasto?vp>15:vp<-15
+  if(crit)return'r';if(bad)return'a';return'g'
+}
+
+let openDepts={}
+window.showExo=true
+
+function activeLines(d){return window.showExo!==false?d.lines:d.lines.filter(l=>!l[3])}
+function totalP(){return DEPTS.reduce((s,d)=>s+activeLines(d).reduce((a,l)=>a+l[1],0),0)}
+function totalE(){return DEPTS.reduce((s,d)=>s+activeLines(d).reduce((a,l)=>a+l[2],0),0)}
+
+function buildResumen(){
+  const maxBar=Math.max(...DEPTS.map(d=>Math.max(d.lines.reduce((a,l)=>a+l[1],0),d.lines.reduce((a,l)=>a+l[2],0))))
+  const trendMeses=[
+    {mes:'Enero',r:PLD.enero.util_imp.r,p:PLD.enero.util_imp.p},
+    {mes:'Febrero',r:PLD.febrero.util_imp.r,p:PLD.febrero.util_imp.p},
+    {mes:'Marzo',r:PLD.marzo.util_imp.r,p:PLD.marzo.util_imp.p}
+  ]
+  const maxU=Math.max(...trendMeses.map(m=>Math.max(m.r,m.p)))
+
+  return`
+  <div class="chart-wrap">
+    <div class="chart-title">Presupuesto vs. Ejecutado por área <span style="font-size:11px;color:#94a3b8;font-weight:400">(COP)</span></div>
+    <div class="chart-legend">
+      <span><span class="leg-dot" style="background:#c7d2fe"></span><span style="font-size:11px;color:#64748b">Presupuestado</span></span>
+      <span><span class="leg-dot" style="background:#6366f1"></span><span style="font-size:11px;color:#64748b">Ejecutado</span></span>
+    </div>
+    ${DEPTS.map(d=>{
+      const dp=d.lines.reduce((a,l)=>a+l[1],0)
+      const de=d.lines.reduce((a,l)=>a+l[2],0)
+      const over=de>dp
+      return`<div class="bar-group">
+        <div class="bar-label" style="color:${d.color}">${d.name}</div>
+        <div class="bar-row"><div class="bar-track"><div class="bar-fill" style="width:${Math.round(dp/maxBar*100)}%;background:#c7d2fe"></div></div><div class="bar-num" style="color:#94a3b8">${fN(dp)}</div></div>
+        <div class="bar-row"><div class="bar-track"><div class="bar-fill" style="width:${Math.round(de/maxBar*100)}%;background:${d.color}"></div></div><div class="bar-num" style="color:${over?'#dc2626':'#16a34a'};font-weight:600">${fN(de)} <span style="font-size:10px">${fP(vPct(dp,de))}</span></div></div>
+      </div>`
+    }).join('')}
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">Utilidad antes de impuestos <span style="font-size:11px;color:#94a3b8;font-weight:400">Ene–Mar (millones COP)</span></div>
+    <div style="display:flex;gap:10px;align-items:flex-end;height:110px;margin-top:12px;padding:0 8px">
+      ${trendMeses.map(m=>{
+        const rh=Math.round(m.r/maxU*80),ph=Math.round(m.p/maxU*80)
+        const over=m.r<m.p
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+          <div style="font-size:11px;font-weight:600;color:${over?'#dc2626':'#4338ca'}">${fM(m.r)}</div>
+          <div style="width:100%;display:flex;gap:3px;align-items:flex-end;height:80px">
+            <div style="flex:1;height:${ph}px;background:#c7d2fe;border-radius:4px 4px 0 0"></div>
+            <div style="flex:1;height:${rh}px;background:${over?'#ef4444':'#6366f1'};border-radius:4px 4px 0 0"></div>
+          </div>
+          <div style="font-size:11px;color:#64748b">${m.mes}</div>
+        </div>`
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:14px;margin-top:10px">
+      <span><span class="leg-dot" style="background:#c7d2fe"></span><span style="font-size:11px;color:#64748b">Proyectado</span></span>
+      <span><span class="leg-dot" style="background:#6366f1"></span><span style="font-size:11px;color:#64748b">Real</span></span>
+    </div>
+  </div>
+
+  <div class="alerts">
+    <div class="alert-title">Alertas del período</div>
+    <div class="alert-row warn">⚠ Mantenimiento y Reparaciones (Planta): 2 meses consecutivos con sobreejecución.</div>
+    <div class="alert-row warn">⚠ Gastos Legales (Administración): ejecutado $10.410M vs presupuestado $2.552M (+308%).</div>
+    <div class="alert-row warn">⚠ Ingresos no operacionales: cayeron casi 100% vs proyección en Marzo.</div>
+    <div class="alert-row info">ℹ Maquila: sin servicios este mes — impacto puntual en utilidad, no estructural.</div>
+    <div class="alert-row info">ℹ Materia prima Laboratorio fuera de control. Sin ella: variación Lab. = +1.1% (vs +29.7%).</div>
+  </div>`
+}
+
+function buildAreas(){
+  const showExo=window.showExo!==false
+  const toggleHTML=`
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;background:#fff;border-radius:12px;border:.5px solid #e2e8f0;padding:12px 16px">
+    <div>
+      <div style="font-size:13px;font-weight:600;color:#1e293b">Variables exógenas</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px">
+        ${showExo?'Incluyendo: Materia prima (Lab.) · Mantenimiento y reparaciones (Planta)':'Excluidas: Materia prima (Lab.) · Mantenimiento y reparaciones (Planta)'}
+      </div>
+    </div>
+    <button onclick="toggleExo()" style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:${showExo?'#6366f1':'#f1f5f9'};color:${showExo?'#fff':'#64748b'}">
+      <span style="width:32px;height:18px;border-radius:99px;background:${showExo?'rgba(255,255,255,.3)':'#cbd5e1'};display:inline-flex;align-items:center;padding:2px">
+        <span style="width:14px;height:14px;border-radius:50%;background:#fff;transform:translateX(${showExo?'14px':'0'});display:block"></span>
+      </span>
+      ${showExo?'Con variables exógenas':'Sin variables exógenas'}
+    </button>
+  </div>`
+
+  const deptCards=DEPTS.map((d,di)=>{
+    const lines=activeLines(d)
+    const dp=lines.reduce((a,l)=>a+l[1],0)
+    const de=lines.reduce((a,l)=>a+l[2],0)
+    const dv=vPct(dp,de)
+    const over=de>dp
+    const execPct=dp>0?Math.min(Math.round(de/dp*100),200):0
+    const isOpen=openDepts[di]
+    const exoLines=d.lines.filter(l=>l[3])
+    const hasExo=exoLines.length>0
+
+    return`<div class="dept-card" style="border-left:4px solid ${d.color}">
+      <div class="dept-hdr" onclick="toggleDept(${di})">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="dept-name">${d.name}</div>
+            ${hasExo&&!showExo?`<span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px">Sin ${exoLines.map(l=>l[0]).join(', ')}</span>`:''}
+            ${hasExo&&showExo?`<span style="background:#f0fdf4;color:#166534;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px">Incl. ${exoLines.map(l=>l[0]).join(', ')}</span>`:''}
+          </div>
+          <div class="dept-hint">${lines.length} líneas · ${isOpen?'Cerrar ▲':'Ver detalle ▼'}</div>
+          <div class="progress-labels"><span>${fN(dp)} presup.</span><span style="color:${over?'#dc2626':'#16a34a'};font-weight:600">${execPct}% ejecutado</span><span>${fN(de)} ejec.</span></div>
+          <div class="progress-track"><div class="progress-fill" style="width:${Math.min(execPct,100)}%;background:${over?'#ef4444':d.color}"></div></div>
+        </div>
+        <div class="dept-var" style="margin-left:14px;flex-shrink:0">
+          <div class="dept-var-val" style="color:${over?'#dc2626':'#16a34a'}">${fP(dv)}</div>
+          <div class="dept-var-sub">${over?'+':''}${fN(de-dp)}</div>
+        </div>
+      </div>
+      ${isOpen?`<div>
+        <table class="lines-table">
+          <thead><tr>
+            <th style="text-align:left">Línea</th>
+            <th>Presup.</th><th>Ejec.</th><th>Var %</th><th style="text-align:center">Estado</th>
+          </tr></thead>
+          <tbody>
+          ${lines.map(([name,p,e,isExo])=>{
+            const v=vPct(p,e);const s=sem(v,true)
+            return`<tr style="background:${SEM_BG[s]}">
+              <td>${name}${isExo?` <span style="background:#fef9c3;color:#854d0e;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:4px">exógena</span>`:''}</td>
+              <td style="color:#64748b">${fN(p)}</td>
+              <td style="font-weight:500">${fN(e)}</td>
+              <td class="${e>p?'vn':'vp'}">${fP(v)}</td>
+              <td style="text-align:center"><span class="sem" style="background:${SEM_COLOR[s]}"></span></td>
+            </tr>`
+          }).join('')}
+          <tr class="lines-total">
+            <td>Total ${d.name}</td>
+            <td>${fN(dp)}</td><td>${fN(de)}</td>
+            <td class="${over?'vn':'vp'}">${fP(dv)}</td>
+            <td style="text-align:center"><span class="sem" style="background:${SEM_COLOR[sem(dv,true)]}"></span></td>
+          </tr>
+          </tbody>
+        </table>
+      </div>`:''}
+    </div>`
+  }).join('')
+
+  return toggleHTML+deptCards
+}
+
+function buildPYG(){
+  const exec=[{k:'enero',l:'Enero'},{k:'febrero',l:'Febrero'},{k:'marzo',l:'Marzo'}]
+  const proj=[{k:'abril',l:'Abril'},{k:'mayo',l:'Mayo'},{k:'junio',l:'Junio'},{k:'julio',l:'Julio'},{k:'agosto',l:'Agosto'},{k:'septiembre',l:'Sep.'},{k:'octubre',l:'Oct.'},{k:'noviembre',l:'Nov.'},{k:'diciembre',l:'Dic.'}]
+  const rowStyle=(row)=>{
+    if(row.total)return'font-weight:700;font-size:13px;background:#eef2ff;border-top:2px solid #6366f1;'
+    if(row.sub)return'font-weight:600;font-size:12px;background:#f8fafc;border-top:.5px solid #cbd5e1;'
+    return'font-size:11px;background:#fff;'
+  }
+  const thBase='padding:8px 10px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#fff;white-space:nowrap;border-right:.5px solid rgba(255,255,255,.15)'
+  const thLeft=`${thBase};text-align:left;position:sticky;left:0;z-index:3;min-width:170px`
+  const execHeader=exec.map(m=>`<th colspan="4" style="${thBase};text-align:center;background:#4338ca;border-left:2px solid rgba(255,255,255,.3)">${m.l} — Ejecutado</th>`).join('')
+  const projHeader=proj.map(m=>`<th colspan="2" style="${thBase};text-align:center;background:#64748b;border-left:2px solid rgba(255,255,255,.3)">${m.l} — Proyección</th>`).join('')
+  const subExec=exec.map(m=>`<th style="${thBase};background:#5145cd;border-left:2px solid rgba(255,255,255,.2)">Proy.</th><th style="${thBase};background:#5145cd">Real</th><th style="${thBase};background:#5145cd">% Var</th><th style="${thBase};background:#3b82f6">% s/Vta</th>`).join('')
+  const subProj=proj.map(m=>`<th style="${thBase};background:#475569;border-left:2px solid rgba(255,255,255,.2)">Proy.</th><th style="${thBase};background:#3b82f6">% s/Vta</th>`).join('')
+  const tdStyle='padding:7px 10px;text-align:right;border-bottom:.5px solid #f1f5f9;border-right:.5px solid #f1f5f9;white-space:nowrap'
+  const tdLeft='padding:7px 10px;text-align:left;border-bottom:.5px solid #f1f5f9;position:sticky;left:0;z-index:1;white-space:nowrap'
+  const dataRows=PL_ROWS.map(row=>{
+    const rs=rowStyle(row)
+    const tdL=`${tdLeft};${rs};min-width:170px`
+    const indent=!row.sub&&!row.total?'padding-left:18px;color:#64748b;':''
+    const execCells=exec.map(m=>{
+      const d=PLD[m.k],v=d[row.k],ti=d.total_ing
+      const vp=vPct(v.p,v.r)
+      const good=row.inc?v.r>=v.p:v.r<=v.p
+      const vc=good?'#16a34a':'#dc2626'
+      const base=ti.r||ti.p
+      return`<td style="${tdStyle};${rs};border-left:2px solid #e0e7ff">${fN(v.p)}</td><td style="${tdStyle};${rs};font-weight:${row.sub||row.total?600:400}">${fN(v.r)}</td><td style="${tdStyle};${rs};color:${vc};font-weight:600">${fP(vp)}</td><td style="${tdStyle};${rs};background:#eff6ff;color:#2563eb;font-weight:600">${pct(v.r||v.p,base)}</td>`
+    }).join('')
+    const projCells=proj.map(m=>{
+      const d=PLD[m.k],v=d[row.k],ti=d.total_ing
+      return`<td style="${tdStyle};${rs};color:#94a3b8;border-left:2px solid #e2e8f0">${fN(v.p)}</td><td style="${tdStyle};${rs};background:#eff6ff;color:#2563eb;font-weight:600">${pct(v.p,ti.p)}</td>`
+    }).join('')
+    return`<tr><td style="${tdL};${indent}">${row.l}</td>${execCells}${projCells}</tr>`
+  }).join('')
+  return`
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <span class="badge" style="background:#eef2ff;color:#4338ca">Ejecutado: Ene – Mar</span>
+    <span class="badge" style="background:#f1f5f9;color:#64748b">Proyección: Abr – Dic</span>
+    <span class="badge" style="background:#eff6ff;color:#2563eb">% s/Vta = fila ÷ total ingresos</span>
+  </div>
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:.5px solid #e2e8f0">
+    <table style="border-collapse:collapse;min-width:100%">
+      <thead>
+        <tr><th style="${thLeft};background:#1e293b">Concepto</th>${execHeader}${projHeader}</tr>
+        <tr><th style="${thLeft};background:#334155;font-size:10px;color:#94a3b8;font-weight:400;letter-spacing:0"></th>${subExec}${subProj}</tr>
+      </thead>
+      <tbody>${dataRows}</tbody>
+    </table>
+  </div>`
+}
+
+window.toggleExo=function(){
+  window.showExo=window.showExo===false?true:false
+  render()
+}
+window.toggleDept=function(di){
+  openDepts[di]=!openDepts[di]
+  document.getElementById('panel-areas').innerHTML=buildAreas()
+}
+window.switchTab=function(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id))
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+id))
+}
+
+function render(){
+  const tp=totalP(),te=totalE(),tv=vPct(tp,te)
+  document.getElementById('app').innerHTML=`
+  <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">SALUS · Informe presupuestal</div>
+  <h1>Marzo 2025</h1>
+  <div class="sub">Presupuesto vs. Ejecutado · Estado de resultados Ene–Dic</div>
+  <div class="kpis">
+    <div class="kpi kpi-p"><div class="kpi-label">Total presupuestado</div><div class="kpi-val">${fN(tp)}</div><div class="kpi-sub">COP</div></div>
+    <div class="kpi kpi-e"><div class="kpi-label">Total ejecutado</div><div class="kpi-val">${fN(te)}</div><div class="kpi-sub">COP</div></div>
+    <div class="kpi kpi-v"><div class="kpi-label">Variación global</div><div class="kpi-val">${fP(tv)}</div><div class="kpi-sub">${te>tp?'+':''}${fN(te-tp)} COP</div></div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="resumen" onclick="switchTab('resumen')">Resumen</button>
+    <button class="tab" data-tab="areas" onclick="switchTab('areas')">Áreas</button>
+    <button class="tab" data-tab="pyg" onclick="switchTab('pyg')">P&G</button>
+  </div>
+  <div class="panel active" id="panel-resumen">${buildResumen()}</div>
+  <div class="panel" id="panel-areas">${buildAreas()}</div>
+  <div class="panel" id="panel-pyg">${buildPYG()}</div>`
+}
+render()
+</script>
+</body>
+</html>
